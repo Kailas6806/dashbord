@@ -413,7 +413,7 @@ else:
         st.session_state.last_played = final_signal
 
 # INVESTMENT TRACKER
-tracker_hdr, reset_col = st.columns([5,1])
+tracker_hdr, reset_col, test_col = st.columns([4, 1, 1])
 with tracker_hdr:
     st.subheader("💼 Investment Tracker (₹20,000 Capital)")
 with reset_col:
@@ -426,6 +426,19 @@ with reset_col:
         if os.path.exists(log_file): os.remove(log_file)
         st.success("✅ Tracker reset! Starting fresh.")
         st.rerun()
+
+with test_col:
+    st.write("")
+    if st.button("📨 Test", help="Send a test Telegram alert", use_container_width=True):
+        now_t = datetime.datetime.now(IST).strftime("%I:%M:%S %p")
+        result = send_telegram(
+            f"🧪 *V12 TEST ALERT*\n"
+            f"🟢 SIGNAL: BUY CE\n"
+            f"📍 Strike: `{atm_actual}` | Spot: `{round(spot,2)}`\n"
+            f"💰 Entry: `{ce_price}` | SL: `{round(ce_price*0.75,2)}` | Target: `{round(ce_price*2,2)}`\n"
+            f"⏰ Time: `{now_t}` ← TEST MESSAGE"
+        )
+        st.success("📨 Test message sent! Check Telegram.")
 
 log_df      = pd.DataFrame(st.session_state.trade_log) if st.session_state.trade_log else pd.DataFrame(columns=LOG_COLS)
 closed_only = log_df[log_df["Status"]=="CLOSED"] if not log_df.empty else pd.DataFrame()
