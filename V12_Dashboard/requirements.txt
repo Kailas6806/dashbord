@@ -1,7 +1,9 @@
 streamlit>=1.27.0
 pandas>=2.0.0
 numpy
-yfinance
 plotly
 requests
 streamlit-autorefresh
+jugaad-data
+lxml
+brotli
