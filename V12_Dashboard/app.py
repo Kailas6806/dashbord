@@ -115,7 +115,9 @@ pe_build   = int(df.loc[df["PE OI Δ"].idxmax(),"Strike"])
 # ══════════════════════════════════════════
 # 🔰 FILTER 1 — TIME WINDOW (9:30 AM – 2:30 PM)
 # ══════════════════════════════════════════
-now_time   = datetime.datetime.now().time()
+IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+now_ist    = datetime.datetime.now(IST)
+now_time   = now_ist.time()
 mkt_open   = datetime.time(9, 30)
 mkt_close  = datetime.time(14, 30)
 in_window  = mkt_open <= now_time <= mkt_close
@@ -222,7 +224,7 @@ for trade in st.session_state.trade_log:
         ep  = float(trade.get("Entry Price") or 0)
         qty = int(trade.get("Qty") or 0)
         trade["Live Price"] = lp
-        now_str = datetime.datetime.now().strftime("%I:%M:%S %p")
+        now_str = datetime.datetime.now(IST).strftime("%I:%M:%S %p")
         if lp <= sl:
             trade["Status"]      = "CLOSED"
             trade["Result"]      = "🔴 LOSS"
@@ -290,7 +292,7 @@ if final_signal in ("BUY CE","BUY PE") and final_confidence == "HIGH":
 
     # Log ONCE per new confirmed signal
     if final_signal != st.session_state.last_signal:
-        now = datetime.datetime.now().strftime("%I:%M:%S %p")
+        now = datetime.datetime.now(IST).strftime("%I:%M:%S %p")
         st.session_state.trade_log.insert(0, {
             "Entry Time": now, "Exit Time": None, "Signal": final_signal,
             "Spot": round(spot,2), "Strike": atm_actual,
