@@ -2,9 +2,24 @@ import streamlit as st
 import pandas as pd
 import datetime
 import os
+import requests
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
 from jugaad_data.nse import NSELive
+
+# ─── TELEGRAM ALERT ───
+def send_telegram(msg: str):
+    """Send alert to Telegram. Set TELEGRAM_TOKEN & TELEGRAM_CHAT_ID in st.secrets."""
+    try:
+        token   = st.secrets.get("TELEGRAM_TOKEN", "")
+        chat_id = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        if not token or not chat_id:
+            return  # silently skip if not configured
+        url  = f"https://api.telegram.org/bot{token}/sendMessage"
+        requests.post(url, data={"chat_id": chat_id, "text": msg,
+                                  "parse_mode": "Markdown"}, timeout=5)
+    except Exception:
+        pass  # never crash dashboard due to notification failure
 
 st.set_page_config(page_title="V12 PRO MAX Dashboard", page_icon="🧠")
 st.markdown("""
@@ -267,19 +282,29 @@ for trade in st.session_state.trade_log:
         trade["Live Price"] = lp
         now_str = datetime.datetime.now(IST).strftime("%I:%M:%S %p")
         if lp <= sl:
-            trade["Status"]      = "CLOSED"
-            trade["Result"]      = "🔴 LOSS"
-            trade["Exit Price"]  = lp
-            trade["Exit Time"]   = now_str
+            trade["Status"]       = "CLOSED"
+            trade["Result"]       = "🔴 LOSS"
+            trade["Exit Price"]   = lp
+            trade["Exit Time"]    = now_str
             trade["Actual P&L ₹"] = round((lp - ep) * qty, 2)
             changed = True
+            send_telegram(
+                f"🔴 *SL HIT — {trade.get('Signal')}*\n"
+                f"📍 Strike: `{trade.get('Strike')}` | Exit: `{lp}`\n"
+                f"💸 P&L: `₹{trade['Actual P&L ₹']:,.0f}` | Time: `{now_str}`"
+            )
         elif lp >= tgt:
-            trade["Status"]      = "CLOSED"
-            trade["Result"]      = "🟢 WIN"
-            trade["Exit Price"]  = lp
-            trade["Exit Time"]   = now_str
+            trade["Status"]       = "CLOSED"
+            trade["Result"]       = "🟢 WIN"
+            trade["Exit Price"]   = lp
+            trade["Exit Time"]    = now_str
             trade["Actual P&L ₹"] = round((lp - ep) * qty, 2)
             changed = True
+            send_telegram(
+                f"🟢 *TARGET HIT — {trade.get('Signal')}*\n"
+                f"📍 Strike: `{trade.get('Strike')}` | Exit: `{lp}`\n"
+                f"💸 P&L: `₹{trade['Actual P&L ₹']:,.0f}` | Time: `{now_str}`"
+            )
 if changed:
     save_log()
 
@@ -365,6 +390,16 @@ if final_signal in ("BUY CE","BUY PE") and final_confidence == "HIGH":
         })
         save_log()
         st.session_state.last_signal = final_signal
+
+        # 📨 TELEGRAM ALERT — new signal
+        emoji = "🟢" if "CE" in final_signal else "🔴"
+        send_telegram(
+            f"{emoji} *V12 SIGNAL: {final_signal}*\n"
+            f"📍 Strike: `{atm_actual}` | Spot: `{round(spot,2)}`\n"
+            f"💰 Entry: `{ep}` | SL: `{sl_p}` | Target: `{tgt_p}`\n"
+            f"📦 Qty: `{qty}` | Max Loss: `₹{ml}` | Target P&L: `₹{tp}`\n"
+            f"⏰ Time: `{now}`"
+        )
 
     # Audio once per new confirmed signal
     if final_signal != st.session_state.last_played:
